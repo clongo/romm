@@ -25,7 +25,9 @@ router = APIRouter(
 async def add_state(
     request: Request,
     rom_id: int,
+    stateFile: UploadFile,
     emulator: str | None = None,
+    screenshotFile: UploadFile | None = None,
 ) -> StateSchema:
     data = await request.form()
 
@@ -41,14 +43,6 @@ async def add_state(
         rom_id=rom_id,
         emulator=emulator,
     )
-
-    if "stateFile" not in data:
-        log.error("No state file provided")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="No state file provided"
-        )
-
-    stateFile: UploadFile = data["stateFile"]  # type: ignore
 
     if not stateFile.filename:
         log.error("State file has no filename")
@@ -94,7 +88,6 @@ async def add_state(
         scanned_state.emulator = emulator
         db_state = db_state_handler.add_state(state=scanned_state)
 
-    screenshotFile: UploadFile | None = data.get("screenshotFile", None)  # type: ignore
     if screenshotFile and screenshotFile.filename:
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
             user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
@@ -166,7 +159,12 @@ def get_state(request: Request, id: int) -> StateSchema:
 
 
 @protected_route(router.put, "/{id}", [Scope.ASSETS_WRITE])
-async def update_state(request: Request, id: int) -> StateSchema:
+async def update_state(
+    request: Request, 
+    id: int,
+    stateFile: UploadFile | None = None,
+    screenshotFile: UploadFile | None = None,
+) -> StateSchema:
     data = await request.form()
 
     db_state = db_state_handler.get_state(user_id=request.user.id, id=id)
@@ -175,14 +173,12 @@ async def update_state(request: Request, id: int) -> StateSchema:
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-    if "stateFile" in data:
-        stateFile: UploadFile = data["stateFile"]  # type: ignore
+    if stateFile and stateFile.filename:
         await fs_asset_handler.write_file(file=stateFile, path=db_state.file_path)
         db_state = db_state_handler.update_state(
             db_state.id, {"file_size_bytes": stateFile.size}
         )
 
-    screenshotFile: UploadFile | None = data.get("screenshotFile", None)  # type: ignore
     if screenshotFile and screenshotFile.filename:
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
             user=request.user,

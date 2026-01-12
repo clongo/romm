@@ -25,9 +25,10 @@ router = APIRouter(
 async def add_save(
     request: Request,
     rom_id: int,
+    saveFile: UploadFile,
     emulator: str | None = None,
+    screenshotFile: UploadFile | None = None,
 ) -> SaveSchema:
-    data = await request.form()
 
     rom = db_rom_handler.get_rom(rom_id)
     if not rom:
@@ -41,14 +42,6 @@ async def add_save(
         rom_id=rom_id,
         emulator=emulator,
     )
-
-    if "saveFile" not in data:
-        log.error("No save file provided")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="No save file provided"
-        )
-
-    saveFile: UploadFile = data["saveFile"]  # type: ignore
 
     if not saveFile.filename:
         log.error("Save file has no filename")
@@ -94,7 +87,6 @@ async def add_save(
         scanned_save.emulator = emulator
         db_save = db_save_handler.add_save(save=scanned_save)
 
-    screenshotFile: UploadFile | None = data.get("screenshotFile", None)  # type: ignore
     if screenshotFile and screenshotFile.filename:
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
             user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
@@ -164,7 +156,12 @@ def get_save(request: Request, id: int) -> SaveSchema:
 
 
 @protected_route(router.put, "/{id}", [Scope.ASSETS_WRITE])
-async def update_save(request: Request, id: int) -> SaveSchema:
+async def update_save(
+    request: Request, 
+    id: int,
+    saveFile: UploadFile | None = None,
+    screenshotFile: UploadFile | None = None,
+) -> SaveSchema:
     data = await request.form()
 
     db_save = db_save_handler.get_save(user_id=request.user.id, id=id)
@@ -173,14 +170,12 @@ async def update_save(request: Request, id: int) -> SaveSchema:
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-    if "saveFile" in data:
-        saveFile: UploadFile = data["saveFile"]  # type: ignore
+    if saveFile and saveFile.filename:
         await fs_asset_handler.write_file(file=saveFile, path=db_save.file_path)
         db_save = db_save_handler.update_save(
             db_save.id, {"file_size_bytes": saveFile.size}
         )
 
-    screenshotFile: UploadFile | None = data.get("screenshotFile", None)  # type: ignore
     if screenshotFile and screenshotFile.filename:
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
             user=request.user,

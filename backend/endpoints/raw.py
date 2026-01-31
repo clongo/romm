@@ -26,7 +26,22 @@ def head_raw_asset(request: Request, path: str):
     return FileResponse(path=str(resolved_path), filename=resolved_path.name)
 
 
-@protected_route(router.get, "/assets/{path:path}", [Scope.ASSETS_READ])
+@protected_route(
+    router.get,
+    "/assets/{path:path}",
+    [Scope.ASSETS_READ],
+    responses={
+        200: {
+            "description": "Successful Response",
+            "content": {
+                "application/octet-stream": {
+                    "schema": {"type": "string", "format": "binary"}
+                }
+            },
+        }
+    },
+    response_class=FileResponse,
+)
 def get_raw_asset(request: Request, path: str):
     """Download a single asset file
 

@@ -761,7 +761,18 @@ async def head_rom_content(
     router.get,
     "/{id}/content/{file_name}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        200: {
+            "description": "Successful Response",
+            "content": {
+                "application/octet-stream": {
+                    "schema": {"type": "string", "format": "binary"}
+                }
+            },
+        },
+        status.HTTP_404_NOT_FOUND: {}
+    },
+    response_class=FileResponse,
 )
 async def get_rom_content(
     request: Request,

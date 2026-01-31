@@ -187,6 +187,18 @@ def head_firmware_content(request: Request, id: int, file_name: str):
     router.get,
     "/{id}/content/{file_name}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.FIRMWARE_READ],
+    responses={
+        200: {
+            "description": "Successful Response",
+            "content": {
+                "application/octet-stream": {
+                    "schema": {"type": "string", "format": "binary"}
+                }
+            },
+        },
+        status.HTTP_404_NOT_FOUND: {}
+    },
+    response_class=FileResponse,
 )
 def get_firmware_content(
     request: Request,
